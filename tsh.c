@@ -169,6 +169,7 @@ void eval(char *cmdline)
     char buf[MAXLINE];
     int bg;
     pid_t pid;
+    int jid;
 
     strcpy(buf, cmdline);
     bg = parseline(buf, argv);
@@ -184,11 +185,15 @@ void eval(char *cmdline)
         }
         if(!bg) {
             int status;
+            jid = addjob(jobs, pid, FG, cmdline);
             if(waitpid(pid, &status, 0) < 0)
                 unix_error("waitfg: waitpid error");
+            deletejob(jobs, pid);
         }
-        else
-            printf("%d %s", pid, cmdline);
+        else {
+            jid = addjob(jobs, pid, BG, cmdline);
+            printf("%d %d %s", jid, pid, cmdline);
+        }  
     }
 
     return;
@@ -296,6 +301,11 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
+    int status;
+    pid_t pid;
+    while((pid = waitpid(-1, &status, 0)) > 0) {
+        deletejob(jobs, pid);
+    }
     return;
 }
 
@@ -373,8 +383,8 @@ int addjob(struct job_t *jobs, pid_t pid, int state, char *cmdline)
   	    if(verbose){
 	        printf("Added job [%d] %d %s\n", jobs[i].jid, jobs[i].pid, jobs[i].cmdline);
             }
-            return 1;
-	}
+            return jobs[i].jid;
+	    }
     }
     printf("Tried to create too many jobs\n");
     return 0;
