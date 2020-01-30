@@ -203,7 +203,7 @@ void eval(char *cmdline)
         }
         else {
             jid = addjob(jobs, pid, BG, cmdline);
-            printf("%d %d %s", jid, pid, cmdline);
+            printf("[%d] (%d) %s", jid, pid, cmdline);
             sigprocmask(SIG_SETMASK, &prev_one, NULL); 
         }
     }
@@ -323,7 +323,6 @@ void sigchld_handler(int sig)
 {
     int status;
     pid_t pid;
-    //破案关键在于WHONANG
     while((pid = waitpid(-1, &status, WUNTRACED | WNOHANG )) > 0) {
         deletejob(jobs, pid);
     }
