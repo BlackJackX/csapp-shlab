@@ -323,6 +323,7 @@ void sigchld_handler(int sig)
 {
     int status;
     pid_t pid;
+    //破案关键在于WHONANG
     while((pid = waitpid(-1, &status, WUNTRACED | WNOHANG )) > 0) {
         deletejob(jobs, pid);
     }
