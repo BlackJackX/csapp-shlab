@@ -191,7 +191,6 @@ void eval(char *cmdline)
         sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
         if((pid = fork()) == 0) {
             sigprocmask(SIG_SETMASK, &prev_one, NULL);
-            printf("child\n");
             if(execve(argv[0], argv, environ) < 0) {
                 printf("%s: Command not found.\n", argv[0]);
                 exit(0);
@@ -199,24 +198,15 @@ void eval(char *cmdline)
         }
         sigprocmask(SIG_BLOCK, &mask_all, NULL);
         if(!bg) {
-            int status;
-            printf("parent %d\n", pid);
-            //jid = addjob(jobs, pid, FG, cmdline);
-            if(waitpid(pid, &status, 0) < 0)
-                printf("ffff\n");
-                //unix_error("waitfg: waitpid error");
-            printf("aaaa %d\n", pid);
-            //deletejob(jobs, pid);
+            addjob(jobs, pid, FG, cmdline);
+            waitfg(pid);
         }
         else {
-            //jid = addjob(jobs, pid, BG, cmdline);
+            jid = addjob(jobs, pid, BG, cmdline);
             printf("%d %d %s", jid, pid, cmdline);
+            sigprocmask(SIG_SETMASK, &prev_one, NULL); 
         }
-        printf("bbbb\n");  
-        sigprocmask(SIG_SETMASK, &prev_one, NULL); 
-        printf("ddd\n");
     }
-    printf("ccc\n");
     return;
 }
 
@@ -285,15 +275,15 @@ int builtin_cmd(char **argv)
 {
     if(strcmp(argv[0], "quit") == 0)
         exit(0);
-    // if(strcmp(argv[0], "jobs") == 0) {
-    //     listjobs(jobs);
-    //     return 1;
-    // }
+    if(strcmp(argv[0], "jobs") == 0) {
+        listjobs(jobs);
+        return 1;
+    }
         
     return 0;     /* not a builtin command */
 }
 
-/* 
+/* em
  * do_bgfg - Execute the builtin bg and fg commands
  */
 void do_bgfg(char **argv) 
@@ -306,6 +296,15 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
+    sigset_t mask_empty;
+    sigemptyset(&mask_empty);
+    pid_t fg_pid = fgpid(jobs);
+    int fg_jid = pid2jid(fg_pid);
+
+    while(fg_pid != 0 && jobs[fg_jid-1].pid != 0) {
+        sigsuspend(&mask_empty);
+    }
+    sigprocmask(SIG_SETMASK, &mask_empty, NULL);//restore the block vector
     return;
 }
 
@@ -324,9 +323,7 @@ void sigchld_handler(int sig)
 {
     int status;
     pid_t pid;
-    printf("eeee\n");
-    //同一个fg进程进行了两次回收,怪不得fg被卡
-    while((pid = waitpid(-1, &status, 0)) > 0) {
+    while((pid = waitpid(-1, &status, WUNTRACED | WNOHANG )) > 0) {
         deletejob(jobs, pid);
     }
     return;
