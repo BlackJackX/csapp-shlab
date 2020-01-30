@@ -1,6 +1,11 @@
 {
     "files.associations": {
         "csapp.h": "c",
-        "signal.h": "c"
+        "signal.h": "c",
+        "setjmp.h": "c",
+        "jobs.h": "c",
+        "stdio.h": "c",
+        "unistd.h": "c",
+        "dirent.h": "c"
     }
 }
