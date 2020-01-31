@@ -63,7 +63,8 @@ struct job_t jobs[MAXJOBS]; /* The job list */
 /* Here are the functions that you will implement */
 void eval(char *cmdline);
 int builtin_cmd(char **argv);
-void do_bgfg(char **argv);
+void do_bg(char **argv);
+void do_fg(char **argv);
 void waitfg(pid_t pid);
 
 void sigchld_handler(int sig);
@@ -281,15 +282,81 @@ int builtin_cmd(char **argv)
         listjobs(jobs);
         return 1;
     }
-        
+    if(strcmp(argv[0], "bg") == 0) {
+        do_bg(argv);
+        return 1;
+    }
+    if(strcmp(argv[0], "fg") == 0) {
+        do_fg(argv);
+        return 1;
+    }
+       
     return 0;     /* not a builtin command */
 }
 
-/* em
+/* 
  * do_bgfg - Execute the builtin bg and fg commands
  */
-void do_bgfg(char **argv) 
+void do_bg(char **argv) 
 {
+    pid_t pid = 0;
+    int jid;
+    if(argv[1][0] == '%') {
+        sscanf(argv[1], "%%%d", &jid);
+        pid = jobs[jid-1].pid;
+    }
+    else {
+        sscanf(argv[1], "%d", &pid);
+        jid = pid2jid(pid);
+    }
+    if(pid == 0) {
+        printf("%d %d\n", jid, pid);
+        printf("Process not exist!\n");
+        return;
+    }
+    if(jobs[jid-1].state == BG) {
+        return;
+    }
+    jobs[jid-1].state = BG;
+    // char* pos;
+    // if((pos = strchr(jobs[jid-1].cmdline, '\n')) != NULL) {
+    //     *pos = ' ';
+    //     *(pos+1) = '&';
+    //     *(pos+2) = '\n';
+    //     *(pos+3) = '\0';
+    // }
+    kill(-1*pid, SIGCONT);
+    printf("[%d] (%d) %s", jid, pid, jobs[jid-1].cmdline);
+    return;
+}
+
+void do_fg(char **argv) 
+{
+    pid_t pid = 0;
+    int jid;
+    if(argv[1][0] == '%') {
+        sscanf(argv[1], "%%%d", &jid);
+        pid = jobs[jid-1].pid;
+    }
+    else {
+        sscanf(argv[1], "%d", &pid);
+        jid = pid2jid(pid);
+    }
+    if(pid == 0) {
+        printf("Process not exist!\n");
+        return;
+    }
+    if(jobs[jid-1].state == FG) {
+        return;
+    }
+    if(jobs[jid-1].state == BG) {
+        jobs[jid-1].state = FG;
+    }
+    else if(jobs[jid-1].state == ST) {
+        jobs[jid-1].state = FG;
+        kill(-1*pid, SIGCONT);
+    }
+    waitfg(pid);
     return;
 }
 
