@@ -300,19 +300,30 @@ int builtin_cmd(char **argv)
 void do_bg(char **argv) 
 {
     pid_t pid = 0;
-    int jid;
+    int jid = -1;
+    if(argv[1] == NULL) {
+        printf("bg command requires PID or %%jobid argument\n");
+        return;
+    }
     if(argv[1][0] == '%') {
         sscanf(argv[1], "%%%d", &jid);
+        if(jid>=MAXJOBS || jobs[jid-1].state == UNDEF) {
+            printf("%%%d: No such job\n", jid);
+            return;
+        }
         pid = jobs[jid-1].pid;
     }
     else {
         sscanf(argv[1], "%d", &pid);
+        if(pid == 0) {
+            printf("bg: argument must be a PID or %%jobid\n");
+            return;
+        }
         jid = pid2jid(pid);
-    }
-    if(pid == 0) {
-        printf("%d %d\n", jid, pid);
-        printf("Process not exist!\n");
-        return;
+        if(jobs[jid-1].state == UNDEF) {
+            printf("(%d): No such process\n", pid);
+            return;
+        }
     }
     if(jobs[jid-1].state == BG) {
         return;
@@ -333,18 +344,30 @@ void do_bg(char **argv)
 void do_fg(char **argv) 
 {
     pid_t pid = 0;
-    int jid;
+    int jid = -1;
+    if(argv[1] == NULL) {
+        printf("fg command requires PID or %%jobid argument\n");
+        return;
+    }
     if(argv[1][0] == '%') {
         sscanf(argv[1], "%%%d", &jid);
+        if(jid>=MAXJOBS || jobs[jid-1].state == UNDEF) {
+            printf("%%%d: No such job\n", jid);
+            return;
+        }
         pid = jobs[jid-1].pid;
     }
     else {
         sscanf(argv[1], "%d", &pid);
+        if(pid == 0) {
+            printf("fg: argument must be a PID or %%jobid\n");
+            return;
+        }
         jid = pid2jid(pid);
-    }
-    if(pid == 0) {
-        printf("Process not exist!\n");
-        return;
+        if(jobs[jid-1].state == UNDEF) {
+            printf("(%d): No such process\n", pid);
+            return;
+        }
     }
     if(jobs[jid-1].state == FG) {
         return;
