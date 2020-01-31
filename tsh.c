@@ -47,6 +47,7 @@ int verbose = 0;            /* if true, print additional output */
 int nextjid = 1;            /* next job ID to allocate */
 char sbuf[MAXLINE];         /* for composing sprintf messages */
 
+
 struct job_t {              /* The job struct */
     pid_t pid;              /* job PID */
     int jid;                /* job ID [1, 2, ...] */
@@ -191,6 +192,7 @@ void eval(char *cmdline)
         sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
         if((pid = fork()) == 0) {
             sigprocmask(SIG_SETMASK, &prev_one, NULL);
+            setpgrp();//set the process's groupid to its pid
             if(execve(argv[0], argv, environ) < 0) {
                 printf("%s: Command not found.\n", argv[0]);
                 exit(0);
@@ -323,7 +325,15 @@ void sigchld_handler(int sig)
 {
     int status;
     pid_t pid;
+    int jid;
+    int sigid;
     while((pid = waitpid(-1, &status, WUNTRACED | WNOHANG )) > 0) {
+        if(WIFSIGNALED(status)) {
+            jid = pid2jid(pid);
+            sigid = WTERMSIG(status);
+            printf("Job [%d] (%d) terminated by signal %d\n", jid, pid, sigid);
+        }
+
         deletejob(jobs, pid);
     }
     return;
@@ -336,6 +346,11 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
+    pid_t fg_pid = fgpid(jobs);
+    if(fg_pid == 0)
+        return;
+    kill(-1*fg_pid, SIGINT);
+
     return;
 }
 
