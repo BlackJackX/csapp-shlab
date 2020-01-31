@@ -303,7 +303,7 @@ void waitfg(pid_t pid)
     pid_t fg_pid = fgpid(jobs);
     int fg_jid = pid2jid(fg_pid);
 
-    while(fg_pid != 0 && jobs[fg_jid-1].pid != 0) {
+    while(fg_pid != 0 && jobs[fg_jid-1].state == FG) {
         sigsuspend(&mask_empty);
     }
     sigprocmask(SIG_SETMASK, &mask_empty, NULL);//restore the block vector
@@ -328,13 +328,21 @@ void sigchld_handler(int sig)
     int jid;
     int sigid;
     while((pid = waitpid(-1, &status, WUNTRACED | WNOHANG )) > 0) {
-        if(WIFSIGNALED(status)) {
+        if(WIFEXITED(status)) {
+            deletejob(jobs, pid);
+        }
+        else if(WIFSIGNALED(status)) {
             jid = pid2jid(pid);
             sigid = WTERMSIG(status);
             printf("Job [%d] (%d) terminated by signal %d\n", jid, pid, sigid);
+            deletejob(jobs, pid);
         }
-
-        deletejob(jobs, pid);
+        else if(WIFSTOPPED(status)) {
+            jid = pid2jid(pid);
+            sigid = WSTOPSIG(status);
+            printf("Job [%d] (%d) stopped by signal %d\n", jid, pid, sigid);
+            jobs[jid-1].state = ST;
+        }
     }
     return;
 }
@@ -361,6 +369,11 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
+    pid_t fg_pid = fgpid(jobs);
+    if(fg_pid == 0)
+        return;
+    kill(-1*fg_pid, SIGTSTP);
+
     return;
 }
 
